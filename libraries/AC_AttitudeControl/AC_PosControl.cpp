@@ -133,7 +133,9 @@ float AC_PosControl::get_alt_error() const
 /// set_target_to_stopping_point_z - returns reasonable stopping altitude in cm above home
 void AC_PosControl::set_target_to_stopping_point_z()
 {
-    get_stopping_point_z(_pos_target);
+    if ((fabs(get_alt_error()) > 20.0f) || (_pos_target.z == 0.0f)){
+        get_stopping_point_z(_pos_target);
+    }
 }
 
 /// get_stopping_point_z - sets stopping_point.z to a reasonable stopping altitude in cm above home
