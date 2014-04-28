@@ -195,6 +195,9 @@ public:
     void advance_wp_target_along_track(float dt);
 
     static const struct AP_Param::GroupInfo var_info[];
+    
+    // get_loiter_speed_cms - returns loiter speed in cm/s (used for control_cruise mode)
+    float get_loiter_speed_cms() const { return _loiter_speed_cms; }
 
 protected:
 
