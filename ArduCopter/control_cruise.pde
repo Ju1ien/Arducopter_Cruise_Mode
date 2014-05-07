@@ -65,6 +65,7 @@ static void cruise_run()
 {
     float target_yaw_rate = 0;
     float target_climb_rate = 0;
+    int16_t rc2_control_in = 0;
 
     // if not auto armed set throttle to zero and exit immediately
     if(!ap.auto_armed || !inertial_nav.position_ok()) {
@@ -102,21 +103,28 @@ static void cruise_run()
             simple_sin_yaw = sinf(angle_rad);
         }
      
+        // Debug condition
+        if(ap.CH7_flag!=0) {
+        
         // update desired cruise velocity and equivalent "fake stick input for loiter" from pilot stick input
         if(g.rc_2.control_in != 0){
             // increase/decrease desired cruise velocity if pilot is moving pitch stick
-            des_vel_cms += VEL_INCREASE_RATE_MAX*(float)g.rc_2.control_in/4500.0f;
+            des_vel_cms += VEL_INCREASE_RATE_MAX*(float)(g.rc_2.control_in)/4500.0f;
             // ensure we are in a correct range: v=[0;VEL_MAX]
             des_vel_cms = constrain_float(des_vel_cms, 0.0f, VEL_MAX);
-            // convert des_vel to a "fake stick angle" that will give this velocity through loiter code
-            g.rc_2.control_in = (int16_t)(des_vel_cms*vel_to_angle_factor);
+        }
+        // convert des_vel to a "fake stick angle" that will give this velocity through loiter code
+        // we have to create rc2_control_in variable instead of updating g.rc_2.control_in because, between 2 loops, g.rc_2.control_in may not be updated if there's no "new_radio_frame"
+        rc2_control_in = (int16_t)(des_vel_cms*vel_to_angle_factor);
+        }else{
+        rc2_control_in = g.rc_2.control_in;
         }
         
         // apply SIMPLE mode transform to pilot inputs
         update_simple_mode();
 
         // process pilot's roll and pitch input
-        wp_nav.set_pilot_desired_acceleration(g.rc_1.control_in, g.rc_2.control_in);
+        wp_nav.set_pilot_desired_acceleration(g.rc_1.control_in, rc2_control_in);
 
         // get pilot's desired yaw rate
         target_yaw_rate = get_pilot_desired_yaw_rate(g.rc_4.control_in);
@@ -170,7 +178,8 @@ static void cruise_init_course_target()
     init_simple_bearing();  
     
     // set the current angle course direction
-    simple_yaw_angle = wrap_360_cd(ahrs.yaw_sensor+18000);
+    simple_yaw_angle = wrap_360_cd(ahrs.yaw_sensor);
+    // simple_yaw_angle = wrap_360_cd(ahrs.yaw_sensor+18000);
     // simple_yaw_angle = constrain_float(atan2f(-simple_sin_yaw,simple_cos_yaw), -3.15f, 3.15f);
     
     // get course_pot_trim value as the pot position reference (move pot right = move copter course right, and pot left = course left)
