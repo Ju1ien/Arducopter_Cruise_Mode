@@ -29,6 +29,7 @@ static int32_t simple_yaw_angle;         // Centideg - N=0, E=9000, S=18000, O=2
 static int16_t course_pot_trim;          // RC course pot channel value on course_pot_enabling
 static float des_vel_cms;                // desired cruise velocity in cm/s
 static float vel_to_angle_factor;        // used to convert desired velocity (in cm/s) into a fake pilot_pitch input (in centidegrees)
+static int16_t rc2_control_in = 0;       // save g.rc_2.control_in in the hold variable rc2_control_in as RC_in will be overwritten but only updated at 30Hz max                     
  
 // cruise_init - initialise cruise controller
 static bool cruise_init(bool ignore_checks)
@@ -65,7 +66,6 @@ static void cruise_run()
 {
     float target_yaw_rate = 0;
     float target_climb_rate = 0;
-    int16_t rc2_control_in = 0;
 
     // if not auto armed set throttle to zero and exit immediately
     if(!ap.auto_armed || !inertial_nav.position_ok()) {
@@ -105,26 +105,31 @@ static void cruise_run()
      
         // Debug condition
         if(ap.CH7_flag!=0) {
-        
-        // update desired cruise velocity and equivalent "fake stick input for loiter" from pilot stick input
-        if(g.rc_2.control_in != 0){
-            // increase/decrease desired cruise velocity if pilot is moving pitch stick
-            des_vel_cms += VEL_INCREASE_RATE_MAX*(float)(g.rc_2.control_in)/4500.0f;
-            // ensure we are in a correct range: v=[0;VEL_MAX]
-            des_vel_cms = constrain_float(des_vel_cms, 0.0f, VEL_MAX);
-        }
-        // convert des_vel to a "fake stick angle" that will give this velocity through loiter code
-        // we have to create rc2_control_in variable instead of updating g.rc_2.control_in because, between 2 loops, g.rc_2.control_in may not be updated if there's no "new_radio_frame"
-        rc2_control_in = (int16_t)(des_vel_cms*vel_to_angle_factor);
-        }else{
-        rc2_control_in = g.rc_2.control_in;
+            // get updated pilot pitch input
+            if(ap.new_radio_frame){
+                rc2_control_in = g.rc_2.control_in;
+            }
+            
+            // update @100 or 400Hz the desired cruise velocity
+            if(rc2_control_in != 0){
+                // increase/decrease desired cruise velocity if pilot is moving pitch stick
+                des_vel_cms += VEL_INCREASE_RATE_MAX*(float)(rc2_control_in)/4500.0f;
+                // ensure we are in a correct range: v=[0;VEL_MAX]
+                des_vel_cms = constrain_float(des_vel_cms, 0.0f, VEL_MAX);
+            }
+            
+            // convert des_vel to a "fake stick angle" that will give this velocity through loiter code
+            // g.rc_2.control_in has to be overwriten by simple mode before being used, so update it only when new radio frame arrived
+            if(ap.new_radio_frame){
+                g.rc_2.control_in = (int16_t)(des_vel_cms*vel_to_angle_factor);
+            }
         }
         
         // apply SIMPLE mode transform to pilot inputs
         update_simple_mode();
 
         // process pilot's roll and pitch input
-        wp_nav.set_pilot_desired_acceleration(g.rc_1.control_in, rc2_control_in);
+        wp_nav.set_pilot_desired_acceleration(g.rc_1.control_in, g.rc_2.control_in);
 
         // get pilot's desired yaw rate
         target_yaw_rate = get_pilot_desired_yaw_rate(g.rc_4.control_in);
