@@ -115,7 +115,8 @@ static void cruise_run()
                 // increase/decrease desired cruise velocity if pilot is moving pitch stick
                 des_vel_cms += VEL_INCREASE_RATE_MAX*(float)(rc2_control_in)/4500.0f;
                 // ensure we are in a correct range: v=[0;VEL_MAX]
-                des_vel_cms = constrain_float(des_vel_cms, 0.0f, VEL_MAX);
+                // negative pitch means go forward
+                des_vel_cms = constrain_float(des_vel_cms, -VEL_MAX, 0.0f);
             }
             
             // convert des_vel to a "fake stick angle" that will give this velocity through loiter code
