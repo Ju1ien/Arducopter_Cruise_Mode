@@ -6,18 +6,7 @@
  * http://en.walkingworking.com/category/walk-work-outdoors-drone-2014/
  */
 
- 
- #if MAIN_LOOP_RATE == 100
- // definitions for 100hz loop update rate          // 1km/h = 27.78cm/s
- # define VEL_INCREASE_RATE_MAX     (55.56f/100.0f) // number of cm/s the cruise velocity will be increased/decreased if the pitch_stick is maintained full range during 1s 
- #else
- // definitions for 400hz loop update rate
- # define VEL_INCREASE_RATE_MAX     (55.56f/400.0f) // number of cm/s the cruise velocity will be increased/decreased if the pitch_stick is maintained full range during 1s 
- #endif
- 
- # define POT_OFFSET_RANGE           27000          // number of cdeg of the course_pot_offset range
- # define POT_OFFSET_FACTOR          (POT_OFFSET_RANGE/900)
- # define VEL_MAX                    166.7f         // maximum cruise velocity in cm/s  - 1km/h = 27.78cm/s
+# define POT_ANGLE_RC_SCALE         900
  
  // declare some function to keep compiler happy
 static void cruise_init_course_target(); 
@@ -95,7 +84,7 @@ static void cruise_run()
             offset_course_pot_enabled = true;
         }else{
             // scaling yaw_target_offset
-            yaw_target_offset = POT_OFFSET_FACTOR*(g.rc_6.control_in-course_pot_trim);
+            yaw_target_offset = (wp_nav.cruise_pot_angle_range/POT_ANGLE_RC_SCALE)*(g.rc_6.control_in-course_pot_trim);
              // add course pot offset
             float angle_rad = radians((simple_yaw_angle+yaw_target_offset)/100);
             // update simple_cos_yaw and simple_sin_yaw
@@ -113,10 +102,10 @@ static void cruise_run()
             // update @100 or 400Hz the desired cruise velocity
             if(rc2_control_in != 0){
                 // increase/decrease desired cruise velocity if pilot is moving pitch stick
-                des_vel_cms += VEL_INCREASE_RATE_MAX*(float)(rc2_control_in)/4500.0f;
-                // ensure we are in a correct range: v=[0;VEL_MAX]
+                des_vel_cms += (wp_nav.cruise_vel_increase_rate_max/(float)MAIN_LOOP_RATE)*(float)(rc2_control_in)/4500.0f;
+                // ensure we are in a correct range: v=[0;wp_nav.cruise_vel_max]
                 // negative pitch means go forward
-                des_vel_cms = constrain_float(des_vel_cms, -VEL_MAX, 0.0f);
+                des_vel_cms = constrain_float(des_vel_cms, -wp_nav.cruise_vel_max, 0.0f);
             }
             
             // convert des_vel to a "fake stick angle" that will give this velocity through loiter code
